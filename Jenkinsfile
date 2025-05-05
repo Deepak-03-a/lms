@@ -1,31 +1,35 @@
 pipeline {
     agent any
-    environment {
-        // More detail: 
-        // https://jenkins.io/doc/book/pipeline/jenkinsfile/#usernames-and-passwords
-        NEXUS_CRED = credentials('nexus')
-   }
-
     stages {
         stage('Build') {
             steps {
-                echo 'Building..'
-                sh 'cd webapp && npm install && npm run build'
+                echo 'Building Docker image...'
+                // Build the Docker image, tagging it with the version from package.json
+                sh 'docker build -t your-dockerhub-username/lms-frontend:${VERSION} -f lms/webapp/Dockerfile .'
+                script {
+                    def packageJson = readJSON file: 'lms/webapp/package.json'
+                    env.VERSION = packageJson.version;
+                    echo "Docker Image Version: ${env.VERSION}"
+                }
             }
         }
-        stage('Test') {
+        stage('Push') {
             steps {
-                echo 'Testing..'
-                sh 'cd webapp && sudo docker container run --rm -e SONAR_HOST_URL="http://20.172.187.108:9000" -e SONAR_LOGIN="sqp_cae41e62e13793ff17d58483fb6fb82602fe2b48" -v ".:/usr/src" sonarsource/sonar-scanner-cli -Dsonar.projectKey=lms'
+                echo "Pushing Docker image..."
+                // Login to Docker Hub (or your registry)
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                    sh 'docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"'
+                    // Push the Docker image
+                    sh 'docker push your-dockerhub-username/lms-frontend:${VERSION}'
+                }
             }
         }
-        stage('Release') {
-            steps {
-                echo 'Release Nexus'
-                sh 'rm -rf *.zip'
-                sh 'cd webapp && zip dist-${BUILD_NUMBER}.zip -r dist'
-                sh 'cd webapp && curl -v -u $Username:$Password --upload-file dist-${BUILD_NUMBER}.zip http://20.172.187.108:8081/repository/lms/'
-            }
-        }
+        stage('Clean Up Workspace') {
+                      steps {
+                            echo 'Cleaning Work Space'
+                            // Install Cleanup Workspace plugin to make below command work
+                            cleanWs()
+                      }
+                  }
     }
 }
