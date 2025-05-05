@@ -4,11 +4,12 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building Docker image...'
-                sh 'cd lms/webapp'
+                // Change to the directory containing the Dockerfile
+                sh 'cd webapp'
                 // Build the Docker image, tagging it with the version from package.json
-                sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f .'
+                sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f Dockerfile .'
                 script {
-                    def packageJson = readJSON file: 'lms/webapp/package.json'
+                    def packageJson = readJSON file: 'webapp/package.json'
                     env.VERSION = packageJson.version;
                     echo "Docker Image Version: ${env.VERSION}"
                 }
@@ -18,10 +19,10 @@ pipeline {
             steps {
                 echo "Pushing Docker image..."
                 // Login to Docker Hub (or your registry)
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: '$DOCKER_USERNAME')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh 'docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"'
                     // Push the Docker image
-                    sh 'docker push your-dockerhub-username/lms-frontend:${VERSION}'
+                    sh 'docker push your-dockerhub-deepak13333/lms-test:${VERSION}'
                 }
             }
         }
