@@ -1,20 +1,27 @@
 pipeline {
     agent any
     stages {
+        stage('Checkout') {
+            steps {
+                // Checkout the Git repository
+                checkout scm
+            }
+        }
         stage('Build') {
             steps {
                 echo 'Building Docker image...'
                 // Change to the directory containing the Dockerfile
                 sh 'cd webapp'
-                // Check for Dockerfile
-                sh 'docker --version'  // Corrected line
+                // Print current directory
+                sh 'pwd'
+                // List files in webapp
                 sh 'ls -l'
                 // Build the Docker image, tagging it with the version from package.json
-                sh 'docker build -t deepak13333/lms-test:${VERSION} -f Dockerfile .'
                 script {
-                    def packageJson = readJSON file: 'webapp/package.json'
-                    env.VERSION = packageJson.version;
-                    echo "Docker Image Version: ${env.VERSION}"
+                    def packageJson = readJSON file: 'package.json'
+                    env.VERSION = packageJson.version
+                    echo "package.json version: ${env.VERSION}"
+                    sh "docker build -t deepak13333/lms-test:${VERSION} -f Dockerfile ."
                 }
             }
         }
@@ -30,11 +37,11 @@ pipeline {
             }
         }
         stage('Clean Up Workspace') {
-                      steps {
-                            echo 'Cleaning Work Space'
-                            // Install Cleanup Workspace plugin to make below command work
-                            cleanWs()
-                      }
-                  }
+            steps {
+                echo 'Cleaning Work Space'
+                // Install Cleanup Workspace plugin to make below command work
+                cleanWs()
+            }
+        }
     }
 }
