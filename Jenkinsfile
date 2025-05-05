@@ -8,6 +8,7 @@ pipeline {
                 sh 'cd webapp'
                 // Check for Dockerfile
                 sh 'docker --version'  // Corrected line
+                sh 'ls -l'
                 // Build the Docker image, tagging it with the version from package.json
                 sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f .'
                 script {
