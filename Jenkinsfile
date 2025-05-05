@@ -9,7 +9,7 @@ pipeline {
                 // Check for Dockerfile
                 sh 'docker --version'  // Corrected line
                 // Build the Docker image, tagging it with the version from package.json
-                sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f Dockerfile .'
+                sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f .'
                 script {
                     def packageJson = readJSON file: 'webapp/package.json'
                     env.VERSION = packageJson.version;
