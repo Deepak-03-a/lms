@@ -14,10 +14,10 @@ pipeline {
                 sh 'cd webapp'
                 // Get the version from package.json
                 script {
-                    def packageJsonText = readFile 'webapp/package.json'  // Corrected path
+                    def packageJsonText = readFile 'webapp/package.json'
                     def packageJson = new groovy.json.JsonSlurper().parseText(packageJsonText)
-                    env.VERSION = packageJson.version
-                    echo "package.json version: ${VERSION}"
+                    env.VERSION = packageJson.version.toString() // Ensure it's a String
+                    echo "package.json version: ${env.VERSION}"
                     // Build and tag the Docker image with the version from package.json
                     sh "docker build -t your-dockerhub-username/your-image-name:${VERSION} -f Dockerfile ."
                 }
