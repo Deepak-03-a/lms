@@ -6,7 +6,7 @@ pipeline {
                 echo 'Building Docker image...'
                 sh 'cd webapp'
                 // Build the Docker image, tagging it with the version from package.json
-                sh 'docker build -t your-dockerhub-deepak13333/lms-frontend:${VERSION} -f .'
+                sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f .'
                 script {
                     def packageJson = readJSON file: 'lms/webapp/package.json'
                     env.VERSION = packageJson.version;
