@@ -4,7 +4,7 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building Docker image...'
-                sh 'cd lms/webapp/Dockerfile'
+                sh 'cd lms/webapp/'
                 // Build the Docker image, tagging it with the version from package.json
                 sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f .'
                 script {
