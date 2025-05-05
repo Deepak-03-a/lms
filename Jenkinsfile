@@ -10,7 +10,7 @@ pipeline {
                 sh 'docker --version'  // Corrected line
                 sh 'ls -l'
                 // Build the Docker image, tagging it with the version from package.json
-                sh 'docker build -t your-dockerhub-deepak13333/lms-test:${VERSION} -f .'
+                sh 'docker build -t deepak13333/lms-test:${VERSION} -f Dockerfile .'
                 script {
                     def packageJson = readJSON file: 'webapp/package.json'
                     env.VERSION = packageJson.version;
@@ -25,7 +25,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh 'docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"'
                     // Push the Docker image
-                    sh 'docker push your-dockerhub-deepak13333/lms-test:${VERSION}'
+                    sh 'docker push deepak13333/lms-test:${VERSION}'
                 }
             }
         }
