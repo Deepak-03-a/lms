@@ -7,21 +7,18 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Build') {
+        stage('Build and Tag') {
             steps {
-                echo 'Building Docker image...'
+                echo 'Building and Tagging Docker image...'
                 // Change to the directory containing the Dockerfile
                 sh 'cd webapp'
-                // Print current directory
-                sh 'pwd'
-                // List files in webapp
-                sh 'ls -l'
-                // Build the Docker image, tagging it with the version from package.json
+                // Get the version from package.json
                 script {
                     def packageJson = readJSON file: 'package.json'
                     env.VERSION = packageJson.version
                     echo "package.json version: ${env.VERSION}"
-                    sh "docker build -t deepak13333/lms-test:${VERSION} -f Dockerfile ."
+                    // Build and tag the Docker image with the version from package.json
+                    sh "docker build -t your-dockerhub-username/your-image-name:${VERSION} -f Dockerfile ."
                 }
             }
         }
@@ -31,8 +28,8 @@ pipeline {
                 // Login to Docker Hub (or your registry)
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh 'docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"'
-                    // Push the Docker image
-                    sh 'docker push deepak13333/lms-test:${VERSION}'
+                    // Push the Docker image with the version tag
+                    sh "docker push your-dockerhub-username/your-image-name:${VERSION}"
                 }
             }
         }
