@@ -14,23 +14,12 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git(credentialsId: 'github-credentials-id',
-                    url: 'https://github.com/Deepak-03-a/lms.git',
-                    branch: 'project-6')
-            }
-        }
-
-        stage('Version and Tag') {
+        stage('Version') {
             steps {
                 script {
                     def packageJson = readJSON file: 'webapp/package.json'
                     env.VERSION = packageJson.version
                     echo "Version from package.json: ${env.VERSION}"
-
-                    sh "git tag ${env.VERSION}"
-                    sh "git push --tags"
                 }
             }
         }
@@ -39,10 +28,11 @@ pipeline {
             steps {
                 script {
                     dockerLogin(credentialsId: params.DOCKERHUB_CREDENTIALS_ID,
-                                username: params.DOCKERHUB_USERNAME)  // Include username
+                                username: params.DOCKERHUB_USERNAME)
 
                     def dockerImage = docker.build("${params.IMAGE_NAME}:${env.VERSION}", dir: 'webapp')
-                    dockerImage.push()
+                    // Tag the image for Docker Hub
+                    dockerImage.push("${env.VERSION}")
                     dockerImage.push('latest')
                 }
             }
@@ -52,7 +42,6 @@ pipeline {
             steps {
                 script {
                     echo "Deploying image ${params.IMAGE_NAME}:${env.VERSION} using port mapping"
-                    //  Run the Docker container with hardcoded port mapping.
                     sh "docker run -d -p 80:80 ${params.IMAGE_NAME}:${env.VERSION}"
                 }
             }
