@@ -1,45 +1,67 @@
 pipeline {
     agent any
+
+    parameters {
+        string(name: 'DOCKERHUB_CREDENTIALS_ID',
+               defaultValue: 'dockerhub-credentials',  // Use the ID you provided
+               description: 'ID of the Docker Hub credentials in Jenkins')
+        string(name: 'DOCKERHUB_USERNAME',
+               defaultValue: 'your-dockerhub-username',
+               description: 'Your Docker Hub username')
+        string(name: 'IMAGE_NAME',
+               defaultValue: 'your-dockerhub-username/lms-frontend',
+               description: 'Name of the Docker image in Docker Hub')
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                // Checkout the Git repository
-                checkout scm
+                git(credentialsId: 'github-credentials-id',
+                    url: 'https://github.com/Deepak-03-a/lms.git',
+                    branch: 'project-6')
             }
         }
-        stage('Build and Tag') {
+
+        stage('Version and Tag') {
             steps {
-                echo 'Building and Tagging Docker image...'
-                // Change to the directory containing the Dockerfile
-                sh 'cd webapp'
-                // Get the version from package.json
                 script {
-                    def packageJsonText = readFile 'webapp/package.json'
-                    def packageJson = new groovy.json.JsonSlurper().parseText(packageJsonText)
-                    env.VERSION = packageJson.version.toString() // Ensure it's a String
-                    echo "package.json version: ${env.VERSION}"
-                    // Build and tag the Docker image with the version from package.json
-                    sh "docker build -t your-dockerhub-username/your-image-name:${VERSION} -f Dockerfile ."
+                    def packageJson = readJSON file: 'webapp/package.json'
+                    env.VERSION = packageJson.version
+                    echo "Version from package.json: ${env.VERSION}"
+
+                    sh "git tag ${env.VERSION}"
+                    sh "git push --tags"
                 }
             }
         }
-        stage('Push') {
+
+        stage('Build and Push Docker Image') {
             steps {
-                echo "Pushing Docker image..."
-                // Login to Docker Hub (or your registry)
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                    sh 'docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"'
-                    // Push the Docker image with the version tag
-                    sh "docker push your-dockerhub-username/your-image-name:${VERSION}"
+                script {
+                    dockerLogin(credentialsId: params.DOCKERHUB_CREDENTIALS_ID,
+                                username: params.DOCKERHUB_USERNAME)  // Include username
+
+                    def dockerImage = docker.build("${params.IMAGE_NAME}:${env.VERSION}", dir: 'webapp')
+                    dockerImage.push()
+                    dockerImage.push('latest')
                 }
             }
         }
-        stage('Clean Up Workspace') {
+
+        stage('Deploy') {
             steps {
-                echo 'Cleaning Work Space'
-                // Install Cleanup Workspace plugin to make below command work
-                cleanWs()
+                script {
+                    echo "Deploying image ${params.IMAGE_NAME}:${env.VERSION} using port mapping"
+                    //  Run the Docker container with hardcoded port mapping.
+                    sh "docker run -d -p 80:80 ${params.IMAGE_NAME}:${env.VERSION}"
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
