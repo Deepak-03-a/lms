@@ -1,0 +1,1 @@
+kubectl get service lms-fe-service -o wide
