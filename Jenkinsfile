@@ -1,31 +1,110 @@
 pipeline {
-    agent any
-    environment {
-        // More detail: 
-        // https://jenkins.io/doc/book/pipeline/jenkinsfile/#usernames-and-passwords
-        NEXUS_CRED = credentials('nexus')
-   }
+    agent { label 'local-vm' }
+
+    parameters {
+        string(name: 'DOCKERHUB_CREDENTIALS_ID',
+               defaultValue: 'dockerhub-credentials',
+               description: 'ID of the Docker Hub credentials in Jenkins')
+        string(name: 'DOCKERHUB_USERNAME',
+               defaultValue: 'your-dockerhub-username',
+               description: 'Your Docker Hub username')
+        string(name: 'IMAGE_NAME',
+               defaultValue: 'your-dockerhub-username/lms-frontend',
+               description: 'Name of the Docker image in Docker Hub')
+        string(name: 'MINIKUBE_CONTEXT',
+               defaultValue: 'minikube',
+               description: 'Name of the Minikube context')
+        string(name: 'NODE_PORT',
+               defaultValue: '30000',
+               description: 'The NodePort to expose the service on (requested)')
+    }
 
     stages {
-        stage('Build') {
+        stage('Version') {
             steps {
-                echo 'Building..'
-                sh 'cd webapp && npm install && npm run build'
+                script {
+                    def packageJson = readJSON file: 'webapp/package.json'
+                    env.VERSION = packageJson.version
+                    echo "Version from package.json: ${env.VERSION}"
+                }
             }
         }
-        stage('Test') {
+
+        stage('Build and Push Docker Image') {
             steps {
-                echo 'Testing..'
-                sh 'cd webapp && sudo docker container run --rm -e SONAR_HOST_URL="http://20.172.187.108:9000" -e SONAR_LOGIN="sqp_cae41e62e13793ff17d58483fb6fb82602fe2b48" -v ".:/usr/src" sonarsource/sonar-scanner-cli -Dsonar.projectKey=lms'
+                script {
+                    echo "Logging into Docker Hub..."
+                    dockerLogin(credentialsId: params.DOCKERHUB_CREDENTIALS_ID,
+                                username: params.DOCKERHUB_USERNAME)
+
+                    echo "Building Docker image..."
+                    def dockerImage = docker.build(image: "${params.IMAGE_NAME}:${env.VERSION}", dir: 'webapp')
+
+                    echo "Pushing Docker image tags..."
+                    dockerImage.push("${env.VERSION}")
+                    dockerImage.push('latest')
+                    env.DOCKER_IMAGE_TAGGED = "${params.IMAGE_NAME}:${env.VERSION}"
+                    echo "Docker image pushed: ${env.DOCKER_IMAGE_TAGGED}"
+                }
             }
         }
-        stage('Release') {
+
+        stage('Deploy to Minikube') {
             steps {
-                echo 'Release Nexus'
-                sh 'rm -rf *.zip'
-                sh 'cd webapp && zip dist-${BUILD_NUMBER}.zip -r dist'
-                sh 'cd webapp && curl -v -u $Username:$Password --upload-file dist-${BUILD_NUMBER}.zip http://20.172.187.108:8081/repository/lms/'
+                script {
+                    echo "Setting Minikube context: ${params.MINIKUBE_CONTEXT}"
+                    sh "kubectl config use-context ${params.MINIKUBE_CONTEXT}"
+
+                    echo "Applying Kubernetes Deployment and Service..."
+                    def deploymentYaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lms-fe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lms-fe
+  template:
+    metadata:
+      labels:
+        app: lms-fe
+    spec:
+      containers:
+        - name: frontend-container
+          image: ${env.DOCKER_IMAGE_TAGGED}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lms-fe-service
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      nodePort: ${params.NODE_PORT}
+  selector:
+    app: lms-fe
+"""
+                    sh "kubectl apply -f -" << deploymentYaml
+                    echo "LMS Frontend Deployed to Minikube!"
+
+                    env.MINIKUBE_IP = sh(returnStdout: true, script: "minikube ip").trim()
+                    echo "Application is accessible at: http://${env.MINIKUBE_IP}:${params.NODE_PORT} (Check NodePort with 'kubectl get service lms-fe-service -o wide')"
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
