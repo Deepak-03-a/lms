@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lms-fe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lms-fe
+  template:
+    metadata:
+      labels:
+        app: lms-fe
+    spec:
+      containers:
+        - name: frontend-container
+          image: ${env.DOCKER_IMAGE_TAGGED}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lms-fe-service
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      nodePort: ${params.NODE_PORT}
+  selector:
+    app: lms-fe
